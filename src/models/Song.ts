@@ -3,12 +3,13 @@ import mongoose, { Document, Schema } from "mongoose";
 export interface ISong extends Document {
   title: string;
   artist: mongoose.Types.ObjectId;
-  album?: mongoose.Types.ObjectId;
-  duration: number; 
+  duration: number;
   genre: string;
   fileUrl: string;
   thumbnailUrl?: string;
   lyrics?: string;
+  isPublic: boolean;
+  playCount: number;
   uploadedBy: mongoose.Types.ObjectId;
   createdAt: Date;
   updatedAt: Date;
@@ -26,11 +27,6 @@ const songSchema = new Schema<ISong>(
       type: Schema.Types.ObjectId,
       ref: "Artist",
       required: [true, "Artist is required"],
-    },
-    album: {
-      type: Schema.Types.ObjectId,
-      ref: "Album",
-      default: null,
     },
     duration: {
       type: Number,
@@ -75,6 +71,16 @@ const songSchema = new Schema<ISong>(
     lyrics: {
       type: String,
       default: null,
+    },
+    isPublic: {
+      type: Boolean,
+      default: true,
+      required: [true, "Public status is required"],
+    },
+    playCount: {
+      type: Number,
+      default: 0,
+      min: [0, "Play count cannot be negative"],
     },
     uploadedBy: {
       type: Schema.Types.ObjectId,

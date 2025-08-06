@@ -6,7 +6,6 @@ export interface IUser extends Document {
   email: string;
   password: string;
   avatar?: string;
-  favorites: mongoose.Types.ObjectId[];
   playlists: mongoose.Types.ObjectId[];
   createdAt: Date;
   updatedAt: Date;
@@ -43,12 +42,6 @@ const userSchema = new Schema<IUser>(
       type: String,
       default: null,
     },
-    favorites: [
-      {
-        type: Schema.Types.ObjectId,
-        ref: "Song",
-      },
-    ],
     playlists: [
       {
         type: Schema.Types.ObjectId,
