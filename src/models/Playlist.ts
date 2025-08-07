@@ -6,8 +6,7 @@ export interface IPlaylist extends Document {
   coverImageUrl?: string;
   owner: mongoose.Types.ObjectId;
   songs: mongoose.Types.ObjectId[];
-  isPublic: boolean;
-  totalDuration: number; 
+  totalDuration: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -40,10 +39,6 @@ const playlistSchema = new Schema<IPlaylist>(
         ref: "Song",
       },
     ],
-    isPublic: {
-      type: Boolean,
-      default: false,
-    },
     totalDuration: {
       type: Number,
       default: 0,
