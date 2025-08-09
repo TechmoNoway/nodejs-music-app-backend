@@ -1,7 +1,7 @@
-import { User } from "@/models/User";
+import { User } from "../models/User";
 import { Playlist } from "../models/Playlist";
 import express from "express";
-import { Song } from "@/models/Song";
+import { Song } from "../models/Song";
 
 const router = express.Router();
 
@@ -23,7 +23,6 @@ router.get("/", async (req, res, next) => {
     });
   } catch (error) {
     next(error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -48,7 +47,6 @@ router.get("/:id", async (req, res, next) => {
     }
   } catch (error) {
     next(error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -79,7 +77,6 @@ router.post("/", async (req, res, next) => {
     });
   } catch (error) {
     next(error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -111,7 +108,6 @@ router.put("/:id", async (req, res, next) => {
     });
   } catch (error) {
     next(error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -152,7 +148,6 @@ router.post("/:id/songs", async (req, res, next) => {
     });
   } catch (error) {
     next(error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -185,7 +180,6 @@ router.delete("/:id/songs/:songId", async (req, res, next) => {
     });
   } catch (error) {
     next(error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -205,7 +199,6 @@ router.delete("/:id", async (req, res, next) => {
     res.status(200).json({ success: true, message: "Playlist deleted successfully" });
   } catch (error) {
     next(error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 

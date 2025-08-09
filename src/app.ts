@@ -9,6 +9,8 @@ import rateLimit from "express-rate-limit";
 
 // Import routes
 import songRoutes from "./routes/songs";
+import artistRoutes from "./routes/artists";
+import playlistRoutes from "./routes/playlists";
 
 // Middleware imports
 import { errorHandler } from "./middleware/errorHandler";
@@ -18,8 +20,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const MONGODB_URI =
-  process.env.MONGODB_URI || "mongodb://localhost:27017/music-app";
+const MONGODB_URI = process.env.MONGODB_URI || "mongodb://localhost:27017/music-app";
 
 // Rate limiting
 const limiter = rateLimit({
@@ -29,13 +30,23 @@ const limiter = rateLimit({
 });
 
 // Middleware
-app.use(helmet());
 app.use(
-  cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
-    credentials: true,
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
   })
 );
+// app.use(
+//   cors({
+//     origin: process.env.CLIENT_URL || "http://localhost:3000",
+//     credentials: true,
+//   })
+// );
+cors({
+  origin: process.env.CLIENT_URL || "*",
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+});
 app.use(compression());
 app.use(morgan("combined"));
 app.use(limiter);
@@ -53,6 +64,8 @@ app.get("/health", (req, res) => {
 
 // API routes
 app.use("/api/songs", songRoutes);
+app.use("/api/artists", artistRoutes);
+app.use("/api/playlists", playlistRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
@@ -66,17 +79,21 @@ app.use((req, res) => {
 });
 
 // Database connection
+const clientOptions = {
+  serverApi: { version: "1" as const, strict: true, deprecationErrors: true },
+};
+
 const connectDB = async () => {
   try {
-    await mongoose.connect(MONGODB_URI);
+    await mongoose.connect(MONGODB_URI, clientOptions);
+    await mongoose.connection.db?.admin().ping();
+
     console.log("📦 MongoDB connected successfully");
     return true;
   } catch (error) {
     console.error("❌ MongoDB connection error:", (error as Error).message);
     console.log("⚠️  Server will start without database connection");
-    console.log(
-      "💡 Please install and start MongoDB to enable full functionality"
-    );
+    console.log("💡 Please install and start MongoDB to enable full functionality");
     return false;
   }
 };
@@ -90,9 +107,7 @@ const startServer = async () => {
     console.log(`🌐 Health check: http://localhost:${PORT}/health`);
     console.log(`📚 API Base URL: http://localhost:${PORT}/api`);
     if (!dbConnected) {
-      console.log(
-        "⚠️  Database features are disabled - install MongoDB to enable"
-      );
+      console.log("⚠️  Database features are disabled - install MongoDB to enable");
     }
   });
 };

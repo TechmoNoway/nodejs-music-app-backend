@@ -1,7 +1,7 @@
 import { Song } from "../models/Song";
 import { Artist } from "../models/Artist";
 import express from "express";
-import { authenticateToken } from "@/middleware/auth";
+import { authenticateToken } from "../middleware/auth";
 
 const router = express.Router();
 
@@ -27,7 +27,6 @@ router.get("/", async (req, res, next) => {
     });
   } catch (error) {
     next(error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -48,7 +47,6 @@ router.get("/:id", async (req, res, next) => {
     res.status(200).json({ success: true, data: { artist, songs } });
   } catch (error) {
     next(error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -69,7 +67,6 @@ router.post("/", authenticateToken, async (req, res, next) => {
       .json({ success: true, message: "Artist created successfully", data: { artist } });
   } catch (error) {
     next(error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -97,7 +94,6 @@ router.put("/:id", authenticateToken, async (req, res, next) => {
     });
   } catch (error) {
     next(error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -118,7 +114,6 @@ router.delete("/:id", authenticateToken, async (req, res, next) => {
     });
   } catch (error) {
     next(error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 

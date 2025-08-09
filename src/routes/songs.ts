@@ -35,7 +35,6 @@ router.get("/", async (req, res, next) => {
     });
   } catch (error) {
     next(error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -47,9 +46,7 @@ router.get("/:id", async (req, res, next) => {
       .sort({ createdAt: -1 });
 
     if (!song) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Song not found" });
+      return res.status(404).json({ success: false, message: "Song not found" });
     }
 
     await Song.findByIdAndUpdate(req.params.id, { $inc: { playCount: 1 } });
@@ -60,7 +57,6 @@ router.get("/:id", async (req, res, next) => {
     });
   } catch (error) {
     next(error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
@@ -80,7 +76,6 @@ router.get("/popular/top", async (req, res, next) => {
     });
   } catch (error) {
     next(error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
 });
 

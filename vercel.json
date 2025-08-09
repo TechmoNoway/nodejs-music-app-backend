@@ -1,0 +1,25 @@
+{
+    "version": 2,
+    "builds": [
+        {
+            "src": "src/app.ts",
+            "use": "@vercel/node",
+            "config": {
+                "maxDuration": 30
+            }
+        }
+    ],
+    "routes": [
+        {
+            "src": "/(.*)",
+            "dest": "/src/app.ts"
+        }
+    ],
+    "env": {
+        "NODE_ENV": "production",
+        "MONGODB_URI": "mongodb+srv://nguyentriky0406:mO7rXWrWKFZz7wnw@cluster0.f0fg0.mongodb.net/music-app?retryWrites=true&w=majority&appName=Cluster0",
+        "JWT_SECRET": "your_jwt_secret",
+        "CLIENT_URL": "http://localhost:8081"
+    },
+    "outputDirectory": "dist"
+}
