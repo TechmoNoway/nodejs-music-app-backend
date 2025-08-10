@@ -94,8 +94,7 @@ const songSchema = new Schema<ISong>(
 );
 
 // Index for better search performance
-songSchema.index({ title: "text", genre: 1 });
-songSchema.index({ artist: 1, album: 1 });
+songSchema.index({ title: 1 });
 songSchema.index({ isPublic: 1, createdAt: -1 });
 
 export const Song = mongoose.model<ISong>("Song", songSchema);

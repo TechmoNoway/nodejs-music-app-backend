@@ -17,12 +17,17 @@ router.get("/", async (req, res, next) => {
     }
 
     if (req.query.search) {
-      filter.$text = { $search: req.query.search as string };
+      const searchTerm = req.query.search as string;
+      filter.$or = [
+        { title: { $regex: new RegExp(searchTerm, "i") } },
+        { genre: { $regex: new RegExp(searchTerm, "i") } },
+      ];
     }
 
     const songs = await Song.find(filter)
       .populate("artist", "name imageUrl")
-      .sort({ createdAt: -1 });
+      .sort({ createdAt: -1 })
+      .lean();
 
     const total = await Song.countDocuments(filter);
 
