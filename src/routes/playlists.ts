@@ -1,18 +1,23 @@
-import { User } from "../models/User";
 import { Playlist } from "../models/Playlist";
-import express from "express";
 import { Song } from "../models/Song";
+import express from "express";
+import mongoose from "mongoose";
+import { PlaylistService } from "../services/playlistService";
 
 const router = express.Router();
 
-// Get user's playlists
+// Get user's playlists with filtering
 router.get("/", async (req, res, next) => {
   try {
-    const playlists = await Playlist.find({ owner: req.user._id })
-      .populate("songs", "title artist duration")
-      .sort({ createdAt: -1 });
+    const filters = {
+      type: req.query.type as string,
+      search: req.query.search as string,
+    };
 
-    const total = await Playlist.countDocuments({ owner: req.user._id });
+    const { playlists, total } = await PlaylistService.getUserPlaylists(
+      req.user._id,
+      filters
+    );
 
     res.status(200).json({
       success: true,
@@ -29,82 +34,35 @@ router.get("/", async (req, res, next) => {
 // Get playlist by ID
 router.get("/:id", async (req, res, next) => {
   try {
-    const playlist = await Playlist.findById(req.params.id)
-      .populate("owner", "username avatar")
+    // Validate ObjectId format
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid playlist ID format",
+      });
+    }
+
+    // Validate ownership and get playlist
+    const playlist = await PlaylistService.validatePlaylistOwnership(
+      new mongoose.Types.ObjectId(req.params.id),
+      req.user._id
+    );
+
+    // Populate detailed information
+    const populatedPlaylist = await Playlist.findById(req.params.id)
+      .populate("owner", "username avatar fullName")
       .populate({
         path: "songs",
         populate: {
           path: "artist",
-          select: "name",
+          select: "name imageUrl bio",
         },
+        select: "title duration genre thumbnailUrl playCount createdAt",
       });
-
-    if (!playlist) {
-      return res.status(404).json({
-        success: false,
-        message: "playlist not found",
-      });
-    }
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Create new playlist
-router.post("/", async (req, res, next) => {
-  try {
-    const { name, description } = req.body;
-
-    const playlist = new Playlist({
-      name,
-      description,
-      owner: req.user._id,
-    });
-
-    await playlist.save();
-
-    await User.findByIdAndUpdate(req.user._id, { $push: { playlists: playlist._id } });
-
-    const populatedPlaylist = await Playlist.findById(playlist._id).populate(
-      "owner",
-      "username avatar"
-    );
-
-    res.status(201).json({
-      success: true,
-      message: "Playlist created successfully",
-      data: { playlist: populatedPlaylist },
-    });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Update playlist
-router.put("/:id", async (req, res, next) => {
-  try {
-    const playlist = await Playlist.findById(req.params.id);
-
-    if (!playlist) {
-      return res.status(404).json({ success: false, message: "Playlist not found" });
-    }
-
-    const { name, description, coverImageUrl } = req.body;
-
-    const updatedPlaylist = await Playlist.findByIdAndUpdate(
-      req.params.id,
-      {
-        name,
-        description,
-        coverImageUrl,
-      },
-      { new: true, runValidators: true }
-    ).populate("owner", "username avatar");
 
     res.status(200).json({
       success: true,
-      message: "Playlist updated successfully",
-      data: { playlist: updatedPlaylist },
+      data: { playlist: populatedPlaylist },
     });
   } catch (error) {
     next(error);
@@ -116,32 +74,68 @@ router.post("/:id/songs", async (req, res, next) => {
   try {
     const { songId } = req.body;
 
-    const playlist = await Playlist.findById(req.params.id);
-
-    if (!playlist) {
-      return res.status(400).json({ success: false, message: "Playlist not found" });
+    // Validate input
+    if (!songId || !mongoose.Types.ObjectId.isValid(songId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid song ID is required",
+      });
     }
 
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid playlist ID format",
+      });
+    }
+
+    // Validate playlist ownership
+    const playlist = await PlaylistService.validatePlaylistOwnership(
+      new mongoose.Types.ObjectId(req.params.id),
+      req.user._id
+    );
+
+    // Check if song exists
     const song = await Song.findById(songId);
     if (!song) {
-      return res.status(400).json({ success: false, message: "Song not found" });
+      return res.status(404).json({
+        success: false,
+        message: "Song not found",
+      });
     }
 
-    if (!playlist.songs.includes(songId)) {
-      playlist.songs.push(songId);
+    // Handle special case for Liked Songs playlist
+    if (playlist.playlistType === "liked") {
+      await PlaylistService.addToLikedSongs(
+        req.user._id,
+        new mongoose.Types.ObjectId(songId)
+      );
+    } else {
+      // Check if song is already in playlist
+      if (playlist.songs.includes(new mongoose.Types.ObjectId(songId))) {
+        return res.status(400).json({
+          success: false,
+          message: "Song is already in the playlist",
+        });
+      }
+
+      // Add song to playlist
+      playlist.songs.push(new mongoose.Types.ObjectId(songId));
       playlist.totalDuration += song.duration;
       await playlist.save();
     }
 
+    // Return updated playlist
     const updatedPlaylist = await Playlist.findById(req.params.id).populate({
       path: "songs",
       populate: {
         path: "artist",
-        select: "name",
+        select: "name imageUrl",
       },
+      select: "title duration thumbnailUrl",
     });
 
-    res.json({
+    res.status(200).json({
       success: true,
       message: "Song added to playlist successfully",
       data: { playlist: updatedPlaylist },
@@ -151,52 +145,15 @@ router.post("/:id/songs", async (req, res, next) => {
   }
 });
 
-// Remove song from playlist
-router.delete("/:id/songs/:songId", async (req, res, next) => {
+// Initialize default playlists for user
+router.post("/init-defaults", async (req, res, next) => {
   try {
-    const { id: playlistId, songId } = req.params;
-
-    const playlist = await Playlist.findById(playlistId);
-    if (!playlist) {
-      return res.status(404).json({ success: false, message: "Playlist not found" });
-    }
-
-    const song = await Song.findById(songId);
-    if (song && playlist.songs.some((id) => id.toString() === songId)) {
-      playlist.songs = playlist.songs.filter((id) => id.toString() !== songId);
-      playlist.totalDuration -= Math.max(0, playlist.totalDuration - song.duration);
-      await playlist.save();
-    }
-
-    const updatedPlaylist = await Playlist.findById(playlistId).populate({
-      path: "songs",
-      populate: { path: "artist", select: "name" },
-    });
+    await PlaylistService.createDefaultPlaylistsForUser(req.user._id);
 
     res.status(200).json({
       success: true,
-      message: "Song removed from playlist successfully",
-      data: { playlist: updatedPlaylist },
+      message: "Default playlists created successfully",
     });
-  } catch (error) {
-    next(error);
-  }
-});
-
-// Delete playlist
-router.delete("/:id", async (req, res, next) => {
-  try {
-    const playlist = await Playlist.findById(req.params.id);
-
-    if (!playlist) {
-      return res.status(404).json({ success: false, message: "Playlist not found" });
-    }
-
-    await User.findByIdAndUpdate(req.user._id, { $pull: { playlists: playlist._id } });
-
-    await Playlist.findByIdAndDelete(req.params.id);
-
-    res.status(200).json({ success: true, message: "Playlist deleted successfully" });
   } catch (error) {
     next(error);
   }

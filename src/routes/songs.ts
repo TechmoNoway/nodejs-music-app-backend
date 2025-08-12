@@ -26,6 +26,7 @@ router.get("/", async (req, res, next) => {
 
     const songs = await Song.find(filter)
       .populate("artist", "name imageUrl")
+      .populate("uploadedBy", "name imageUrl")
       .sort({ createdAt: -1 })
       .lean();
 
