@@ -3,6 +3,7 @@ import { Song } from "../models/Song";
 import express from "express";
 import mongoose from "mongoose";
 import { PlaylistService } from "../services/playlistService";
+import { User } from "../models/User";
 
 const router = express.Router();
 
@@ -145,14 +146,34 @@ router.post("/:id/songs", async (req, res, next) => {
   }
 });
 
-// Initialize default playlists for user
-router.post("/init-defaults", async (req, res, next) => {
+// Create new custom playlist
+router.post("/", async (req, res, next) => {
   try {
-    await PlaylistService.createDefaultPlaylistsForUser(req.user._id);
+    const { name, description, coverImageUrl } = req.body;
 
-    res.status(200).json({
+    // Create new playlist
+    const playlist = new Playlist({
+      name,
+      description,
+      coverImageUrl,
+      owner: req.user._id,
+      songs: [],
+      totalDuration: 0,
+      isDefault: false,
+      playlistType: "custom",
+    });
+
+    await playlist.save();
+
+    // Add playlist reference to user
+    await User.findByIdAndUpdate(req.user._id, {
+      $push: { playlists: playlist._id },
+    });
+
+    res.status(201).json({
       success: true,
-      message: "Default playlists created successfully",
+      message: "Playlist created successfully",
+      data: { playlist },
     });
   } catch (error) {
     next(error);

@@ -2,6 +2,7 @@ import express from "express";
 import jwt from "jsonwebtoken";
 import { User } from "../models/User";
 import { authenticateToken } from "../middleware/auth";
+import { PlaylistService } from "../services/playlistService";
 
 const router = express.Router();
 
@@ -10,12 +11,13 @@ router.post("/register", async (req, res, next) => {
   try {
     const { username, email, password } = req.body;
 
+    // Check if user already exists
     const existingUser = await User.findOne({
       $or: [{ email }, { username }],
     });
 
     if (existingUser) {
-      return res.status(400).json({
+      return res.status(409).json({
         success: false,
         message:
           existingUser.email === email
@@ -33,6 +35,16 @@ router.post("/register", async (req, res, next) => {
 
     await user.save();
 
+    // Create default playlists for new user
+    try {
+      await PlaylistService.createDefaultPlaylistsForUser(
+        new (require("mongoose").Types.ObjectId)(user._id)
+      );
+      console.log(`✅ Default playlists created for user: ${user.username}`);
+    } catch (playlistError: any) {
+      console.error("❌ Failed to create default playlists:", playlistError.message);
+    }
+
     // Generate JWT token
     const JWT_SECRET = process.env.JWT_SECRET || "your-secret-key";
     const token = jwt.sign({ userId: user._id }, JWT_SECRET, {
@@ -41,7 +53,7 @@ router.post("/register", async (req, res, next) => {
 
     res.status(201).json({
       success: true,
-      message: "User registered successfully",
+      message: "User registered successfully with default playlists",
       data: {
         user,
         token,
@@ -55,7 +67,7 @@ router.post("/register", async (req, res, next) => {
 // Login
 router.post("/login", async (req, res, next) => {
   try {
-    const { login, password } = req.body; 
+    const { login, password } = req.body;
 
     if (!login || !password) {
       return res.status(400).json({
@@ -106,8 +118,10 @@ router.post("/login", async (req, res, next) => {
 // Get current user profile
 router.get("/me", authenticateToken, async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id)
-      .populate("playlists", "name description coverImageUrl");
+    const user = await User.findById(req.user._id).populate(
+      "playlists",
+      "name description coverImageUrl"
+    );
 
     res.json({
       success: true,

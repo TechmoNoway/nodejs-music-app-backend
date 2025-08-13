@@ -11,12 +11,15 @@ import { Song } from "./models/Song";
 import { Playlist } from "./models/Playlist";
 
 // Import routes
+import authRoutes from "./routes/auth";
+import userRoutes from "./routes/users";
 import songRoutes from "./routes/songs";
 import artistRoutes from "./routes/artists";
 import playlistRoutes from "./routes/playlists";
 
 // Middleware imports
 import { errorHandler } from "./middleware/errorHandler";
+import { authenticateToken } from "./middleware/auth";
 
 // Load environment variables
 dotenv.config();
@@ -76,9 +79,11 @@ app.get("/health", (req, res) => {
 });
 
 // API routes
+app.use("/api/auth", authRoutes);
+app.use("/api/users", authenticateToken, userRoutes);
 app.use("/api/songs", songRoutes);
 app.use("/api/artists", artistRoutes);
-app.use("/api/playlists", playlistRoutes);
+app.use("/api/playlists", authenticateToken, playlistRoutes);
 
 // Error handling middleware
 app.use(errorHandler);
@@ -112,15 +117,15 @@ const connectDB = async () => {
 };
 
 // Start server
-const syncAllIndexes = async () => {
-  await Promise.all([Song.syncIndexes(), Artist.syncIndexes(), Playlist.syncIndexes()]);
-};
+// const syncAllIndexes = async () => {
+//   await Promise.all([Song.syncIndexes(), Artist.syncIndexes(), Playlist.syncIndexes()]);
+// };
 
 const startServer = async () => {
   const dbConnected = await connectDB();
 
   if (dbConnected) {
-    await syncAllIndexes();
+    // await syncAllIndexes();
     console.log("✅ All model indexes synced");
   }
 
