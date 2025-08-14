@@ -6,9 +6,6 @@ import helmet from "helmet";
 import compression from "compression";
 import morgan from "morgan";
 import rateLimit from "express-rate-limit";
-import { Artist } from "./models/Artist";
-import { Song } from "./models/Song";
-import { Playlist } from "./models/Playlist";
 
 // Import routes
 import authRoutes from "./routes/auth";
@@ -116,16 +113,10 @@ const connectDB = async () => {
   }
 };
 
-// Start server
-// const syncAllIndexes = async () => {
-//   await Promise.all([Song.syncIndexes(), Artist.syncIndexes(), Playlist.syncIndexes()]);
-// };
-
 const startServer = async () => {
   const dbConnected = await connectDB();
 
   if (dbConnected) {
-    // await syncAllIndexes();
     console.log("✅ All model indexes synced");
   }
 

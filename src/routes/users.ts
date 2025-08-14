@@ -6,9 +6,10 @@ const router = express.Router();
 // Get user profile
 router.get("/profile", async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id)
-      .populate("favorites", "title artist duration thumbnailUrl")
-      .populate("playlists", "name description coverImageUrl totalDuration");
+    const user = await User.findById(req.user._id).populate(
+      "playlists",
+      "name description coverImageUrl totalDuration"
+    );
 
     res.json({
       success: true,
