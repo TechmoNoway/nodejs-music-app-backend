@@ -118,10 +118,7 @@ router.post("/login", async (req, res, next) => {
 // Get current user profile
 router.get("/me", authenticateToken, async (req, res, next) => {
   try {
-    const user = await User.findById(req.user._id).populate(
-      "playlists",
-      "name description coverImageUrl"
-    );
+    const user = await User.findById(req.user._id);
 
     res.json({
       success: true,

@@ -146,15 +146,117 @@ router.post("/:id/songs", async (req, res, next) => {
   }
 });
 
+// Remove song from playlist
+router.delete("/:id/songs/:songId", async (req, res, next) => {
+  try {
+    const { id: playlistId, songId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(playlistId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid playlist ID format",
+      });
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(songId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid song ID format",
+      });
+    }
+
+    const playlist = await PlaylistService.validatePlaylistOwnership(
+      new mongoose.Types.ObjectId(playlistId),
+      req.user._id
+    );
+
+    if (playlist.playlistType === "recently_played") {
+      return res.status(403).json({
+        success: false,
+        message: "Cannot manually remove songs from Recently Played playlist",
+      });
+    }
+
+    const songObjectId = new mongoose.Types.ObjectId(songId);
+    const songIndex = playlist.songs.findIndex(
+      (song: mongoose.Types.ObjectId) => song.toString() === songId
+    );
+
+    if (songIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        message: "Song not found in this playlist",
+      });
+    }
+
+    const song = await Song.findById(songId);
+    if (!song) {
+      return res.status(404).json({
+        success: false,
+        message: "Song not found in database",
+      });
+    }
+
+    if (playlist.playlistType === "liked") {
+      await PlaylistService.removeFromLikedSongs(req.user._id, songObjectId);
+    } else {
+      // Remove song from regular playlist
+      playlist.songs.splice(songIndex, 1);
+      playlist.totalDuration = Math.max(0, playlist.totalDuration - song.duration);
+      await playlist.save();
+    }
+
+    // Return updated playlist
+    const updatedPlaylist = await Playlist.findById(playlistId).populate({
+      path: "songs",
+      populate: {
+        path: "artist",
+        select: "name imageUrl",
+      },
+      select: "title duration thumbnailUrl",
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Song removed from playlist successfully",
+      data: { playlist: updatedPlaylist },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 // Create new custom playlist
 router.post("/", async (req, res, next) => {
   try {
     const { name, description, coverImageUrl } = req.body;
 
+    // Validate required fields
+    if (!name || name.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Playlist name is required",
+      });
+    }
+
+    if (name.trim().length > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "Playlist name cannot exceed 100 characters",
+      });
+    }
+
+    if (description && description.length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: "Description cannot exceed 500 characters",
+      });
+    }
+
     // Create new playlist
     const playlist = new Playlist({
-      name,
-      description,
+      name: name.trim(),
+      description: description?.trim() || "",
       coverImageUrl,
       owner: req.user._id,
       songs: [],

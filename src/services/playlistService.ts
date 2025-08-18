@@ -11,13 +11,11 @@ export class PlaylistService {
     userId: mongoose.Types.ObjectId
   ): Promise<void> {
     try {
-      // Verify user exists
       const user = await User.findById(userId);
       if (!user) {
         throw new Error("User not found");
       }
 
-      // Create Liked Songs playlist if it doesn't exist
       const existingLikedPlaylist = await Playlist.findOne({
         owner: userId,
         playlistType: "liked",
@@ -39,7 +37,6 @@ export class PlaylistService {
         console.log(`Created "Liked Songs" playlist for user: ${userId}`);
       }
 
-      // Create Recently Played playlist if it doesn't exist
       const existingRecentlyPlayedPlaylist = await Playlist.findOne({
         owner: userId,
         playlistType: "recently_played",
@@ -83,9 +80,7 @@ export class PlaylistService {
         throw new Error("Liked Songs playlist not found");
       }
 
-      // Check if song is already in playlist
       if (!likedPlaylist.songs.includes(songId)) {
-        // Get song info to calculate totalDuration
         const song = await Song.findById(songId);
         if (!song) {
           throw new Error("Song not found");
@@ -117,27 +112,31 @@ export class PlaylistService {
       });
 
       if (!likedPlaylist) {
-        throw new Error("Liked Songs playlist not found");
+        throw new Error("Liked songs playlist not found");
       }
 
-      const songIndex = likedPlaylist.songs.indexOf(songId);
-      if (songIndex > -1) {
-        // Get song info to subtract totalDuration
-        const song = await Song.findById(songId);
-        if (song) {
-          likedPlaylist.totalDuration = Math.max(
-            0,
-            likedPlaylist.totalDuration - song.duration
-          );
-        }
+      const songIndex = likedPlaylist.songs.findIndex(
+        (song: mongoose.Types.ObjectId) => song.toString() === songId.toString()
+      );
 
-        likedPlaylist.songs.splice(songIndex, 1);
-        await likedPlaylist.save();
-
-        console.log(`Removed song ${songId} from Liked Songs for user ${userId}`);
+      if (songIndex === -1) {
+        throw new Error("Song is not in liked songs");
       }
+
+      const song = await Song.findById(songId);
+      if (song) {
+        likedPlaylist.totalDuration = Math.max(
+          0,
+          likedPlaylist.totalDuration - song.duration
+        );
+      }
+
+      likedPlaylist.songs.splice(songIndex, 1);
+      await likedPlaylist.save();
+
+      console.log(`✅ Song ${songId} removed from liked songs for user ${userId}`);
     } catch (error: any) {
-      console.error("Error removing from liked songs:", error.message);
+      console.error("❌ Error removing from liked songs:", error.message);
       throw error;
     }
   }
@@ -203,10 +202,8 @@ export class PlaylistService {
     }
   ): Promise<{ playlists: any[]; total: number }> {
     try {
-      // Build filter
       const filter: any = { owner: userId };
 
-      // Filter by playlist type
       if (
         filters.type &&
         ["custom", "liked", "recently_played", "favorites"].includes(filters.type)
@@ -214,7 +211,6 @@ export class PlaylistService {
         filter.playlistType = filters.type;
       }
 
-      // Search by name
       if (filters.search) {
         const searchTerm = filters.search.trim();
         if (searchTerm) {
@@ -223,7 +219,6 @@ export class PlaylistService {
         }
       }
 
-      // Execute queries in parallel
       const [playlists, total] = await Promise.all([
         Playlist.find(filter)
           .populate("songs", "title artist duration thumbnailUrl")
