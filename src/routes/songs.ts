@@ -4,12 +4,16 @@ import express from "express";
 import { SongService } from "../services/songService";
 import { authenticateToken } from "../middleware/auth";
 
-const addIsLikedStatus = (songs: any[], userId: mongoose.Types.ObjectId) => {
+const addIsLikedStatus = (songs: any[], userId?: mongoose.Types.ObjectId | null) => {
   return songs.map((song) => ({
     ...song,
-    isLiked: song.likedBy.some(
-      (likedUserId: mongoose.Types.ObjectId) =>
-        likedUserId.toString() === userId.toString()
+    isLiked: !!(
+      userId &&
+      Array.isArray(song.likedBy) &&
+      song.likedBy.some(
+        (likedUserId: mongoose.Types.ObjectId) =>
+          likedUserId.toString() === userId.toString()
+      )
     ),
   }));
 };
@@ -45,7 +49,8 @@ router.get("/", async (req, res, next) => {
 
     const total = await Song.countDocuments(filter);
 
-    const songsWithLikeStatus = addIsLikedStatus(songs, req.user._id);
+    const userId = (req as any).user?._id;
+    const songsWithLikeStatus = addIsLikedStatus(songs, userId);
 
     res.status(200).json({
       success: true,
@@ -75,9 +80,14 @@ router.get("/:id", async (req, res, next) => {
 
     await Song.findByIdAndUpdate(req.params.id, { $inc: { playCount: 1 } });
 
-    const isLiked = song.likedBy.some(
-      (likedUserId: mongoose.Types.ObjectId) =>
-        likedUserId.toString() === req.user._id.toString()
+    const userId = (req as any).user?._id;
+    const isLiked = !!(
+      userId &&
+      Array.isArray(song.likedBy) &&
+      song.likedBy.some(
+        (likedUserId: mongoose.Types.ObjectId) =>
+          likedUserId.toString() === userId.toString()
+      )
     );
 
     const songWithLikeStatus = {
@@ -103,7 +113,8 @@ router.get("/popular/top", async (req, res, next) => {
       .limit(10)
       .lean();
 
-    const songsWithLikeStatus = addIsLikedStatus(songs, req.user._id);
+    const userId = (req as any).user?._id;
+    const songsWithLikeStatus = addIsLikedStatus(songs, userId);
 
     res.status(200).json({
       success: true,
