@@ -158,30 +158,49 @@ export class SongService {
     songId: mongoose.Types.ObjectId
   ): Promise<{ song: ISong; isLiked: boolean }> {
     try {
-      const song = await Song.findById(songId);
-      if (!song) {
-        throw new Error("Song not found");
+      const added = await Song.findOneAndUpdate(
+        { _id: songId, likedBy: { $ne: userId } },
+        { $push: { likedBy: userId }, $inc: { likesCount: 1 } },
+        { new: true }
+      ).lean();
+
+      if (added) {
+        try {
+          await PlaylistService.addToLikedSongs(userId, songId);
+        } catch (playlistError: any) {
+          await Song.findByIdAndUpdate(songId, {
+            $pull: { likedBy: userId },
+            $inc: { likesCount: -1 },
+          });
+          throw playlistError;
+        }
+
+        return { song: added as unknown as ISong, isLiked: true };
       }
 
-      const isCurrentlyLiked = song.likedBy.some(
-        (likedUserId: mongoose.Types.ObjectId) =>
-          likedUserId.toString() === userId.toString()
-      );
+      const removed = await Song.findOneAndUpdate(
+        { _id: songId, likedBy: userId },
+        { $pull: { likedBy: userId }, $inc: { likesCount: -1 } },
+        { new: true }
+      ).lean();
 
-      let updatedSong: ISong;
-      let isLiked: boolean;
+      if (removed) {
+        try {
+          await PlaylistService.removeFromLikedSongs(userId, songId);
+        } catch (playlistError: any) {
+          await Song.findByIdAndUpdate(songId, {
+            $push: { likedBy: userId },
+            $inc: { likesCount: 1 },
+          });
+          throw playlistError;
+        }
 
-      if (isCurrentlyLiked) {
-        updatedSong = await this.unlikeSong(userId, songId);
-        isLiked = false;
-      } else {
-        updatedSong = await this.likeSong(userId, songId);
-        isLiked = true;
+        return { song: removed as unknown as ISong, isLiked: false };
       }
 
-      return { song: updatedSong, isLiked };
+      throw new Error("Song not found");
     } catch (error: any) {
-      console.error("❌ Error toggling like song:", error.message);
+      console.error("❌ Error toggling like song:", error.message || error);
       throw error;
     }
   }
