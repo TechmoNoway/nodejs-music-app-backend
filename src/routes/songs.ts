@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { Song } from "../models/Song";
 import express from "express";
 import { SongService } from "../services/songService";
-import { authenticateToken } from "@/middleware/auth";
+import { authenticateToken } from "../middleware/auth";
 
 const addIsLikedStatus = (songs: any[], userId: mongoose.Types.ObjectId) => {
   return songs.map((song) => ({
