@@ -4,6 +4,7 @@ import express from "express";
 import mongoose from "mongoose";
 import { PlaylistService } from "../services/playlistService";
 import { User } from "../models/User";
+import { SongService } from "@/services/songService";
 
 const router = express.Router();
 
@@ -75,7 +76,6 @@ router.post("/:id/songs", async (req, res, next) => {
   try {
     const { songId } = req.body;
 
-    // Validate input
     if (!songId || !mongoose.Types.ObjectId.isValid(songId)) {
       return res.status(400).json({
         success: false,
@@ -90,13 +90,11 @@ router.post("/:id/songs", async (req, res, next) => {
       });
     }
 
-    // Validate playlist ownership
     const playlist = await PlaylistService.validatePlaylistOwnership(
       new mongoose.Types.ObjectId(req.params.id),
       req.user._id
     );
 
-    // Check if song exists
     const song = await Song.findById(songId);
     if (!song) {
       return res.status(404).json({
@@ -105,14 +103,9 @@ router.post("/:id/songs", async (req, res, next) => {
       });
     }
 
-    // Handle special case for Liked Songs playlist
     if (playlist.playlistType === "liked") {
-      await PlaylistService.addToLikedSongs(
-        req.user._id,
-        new mongoose.Types.ObjectId(songId)
-      );
+      await SongService.likeSong(req.user._id, new mongoose.Types.ObjectId(songId));
     } else {
-      // Check if song is already in playlist
       if (playlist.songs.includes(new mongoose.Types.ObjectId(songId))) {
         return res.status(400).json({
           success: false,
@@ -120,28 +113,46 @@ router.post("/:id/songs", async (req, res, next) => {
         });
       }
 
-      // Add song to playlist
       playlist.songs.push(new mongoose.Types.ObjectId(songId));
       playlist.totalDuration += song.duration;
       await playlist.save();
     }
 
-    // Return updated playlist
     const updatedPlaylist = await Playlist.findById(req.params.id).populate({
       path: "songs",
       populate: {
         path: "artist",
         select: "name imageUrl",
       },
-      select: "title duration thumbnailUrl",
+      select: "title duration thumbnailUrl likedBy",
     });
+
+    const playlistWithLikeStatus = {
+      ...updatedPlaylist?.toObject(),
+      songs: updatedPlaylist?.songs.map((song: any) => ({
+        ...song.toObject(),
+        isLiked: song.likedBy.some(
+          (likedUserId: mongoose.Types.ObjectId) =>
+            likedUserId.toString() === req.user._id.toString()
+        ),
+      })),
+    };
 
     res.status(200).json({
       success: true,
       message: "Song added to playlist successfully",
-      data: { playlist: updatedPlaylist },
+      data: { playlist: playlistWithLikeStatus },
     });
-  } catch (error) {
+  } catch (error: any) {
+    console.error("❌ Error adding song to playlist:", error.message);
+
+    if (error.message.includes("already liked")) {
+      return res.status(400).json({
+        success: false,
+        message: "Song is already in your liked songs",
+      });
+    }
+
     next(error);
   }
 });
@@ -178,50 +189,69 @@ router.delete("/:id/songs/:songId", async (req, res, next) => {
     }
 
     const songObjectId = new mongoose.Types.ObjectId(songId);
-    const songIndex = playlist.songs.findIndex(
-      (song: mongoose.Types.ObjectId) => song.toString() === songId
-    );
-
-    if (songIndex === -1) {
-      return res.status(404).json({
-        success: false,
-        message: "Song not found in this playlist",
-      });
-    }
-
-    const song = await Song.findById(songId);
-    if (!song) {
-      return res.status(404).json({
-        success: false,
-        message: "Song not found in database",
-      });
-    }
 
     if (playlist.playlistType === "liked") {
-      await PlaylistService.removeFromLikedSongs(req.user._id, songObjectId);
+      await SongService.unlikeSong(req.user._id, songObjectId);
     } else {
-      // Remove song from regular playlist
+      const songIndex = playlist.songs.findIndex(
+        (song: mongoose.Types.ObjectId) => song.toString() === songId
+      );
+
+      if (songIndex === -1) {
+        return res.status(404).json({
+          success: false,
+          message: "Song not found in this playlist",
+        });
+      }
+
+      const song = await Song.findById(songId);
+      if (!song) {
+        return res.status(404).json({
+          success: false,
+          message: "Song not found in database",
+        });
+      }
+
       playlist.songs.splice(songIndex, 1);
       playlist.totalDuration = Math.max(0, playlist.totalDuration - song.duration);
       await playlist.save();
     }
 
-    // Return updated playlist
     const updatedPlaylist = await Playlist.findById(playlistId).populate({
       path: "songs",
       populate: {
         path: "artist",
         select: "name imageUrl",
       },
-      select: "title duration thumbnailUrl",
+      select: "title duration thumbnailUrl likedBy",
     });
+
+    const playlistWithLikeStatus = {
+      ...updatedPlaylist?.toObject(),
+      songs: updatedPlaylist?.songs.map((song: any) => ({
+        ...song.toObject(),
+        isLiked: song.likedBy.some(
+          (likedUserId: mongoose.Types.ObjectId) =>
+            likedUserId.toString() === req.user._id.toString()
+        ),
+      })),
+    };
 
     res.status(200).json({
       success: true,
       message: "Song removed from playlist successfully",
-      data: { playlist: updatedPlaylist },
+      data: { playlist: playlistWithLikeStatus },
     });
-  } catch (error) {
+  } catch (error: any) {
+    console.error("❌ Error removing song from playlist:", error.message);
+
+    if (error.message.includes("not liked")) {
+      return res.status(400).json({
+        success: false,
+        message: "Song is not in your liked songs",
+      });
+    }
+
     next(error);
   }
 });

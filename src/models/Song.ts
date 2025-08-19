@@ -11,6 +11,8 @@ export interface ISong extends Document {
   isPublic: boolean;
   playCount: number;
   uploadedBy: mongoose.Types.ObjectId;
+  likedBy: mongoose.Types.ObjectId[];
+  likesCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -87,14 +89,37 @@ const songSchema = new Schema<ISong>(
       ref: "User",
       required: [true, "Uploader is required"],
     },
+    likedBy: [
+      {
+        type: Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+    likesCount: {
+      type: Number,
+      default: 0,
+      min: [0, "Likes count cannot be negative"],
+    },
   },
   {
     timestamps: true,
+    toJSON: { virtuals: true },
+    toObject: { virtuals: true },
   }
 );
 
-// Index for better search performance
+// Indexes for performance optimization
 songSchema.index({ title: 1 });
 songSchema.index({ isPublic: 1, createdAt: -1 });
+songSchema.index({ genre: 1 });
+songSchema.index({ artist: 1 });
+songSchema.index({ uploadedBy: 1 });
+songSchema.index({ likedBy: 1 });
+songSchema.index({ likesCount: -1 });
+
+// Pre-save middleware to automatically update likesCount
+songSchema.pre("save", function (this: ISong) {
+  this.likesCount = this.likedBy.length;
+});
 
 export const Song = mongoose.model<ISong>("Song", songSchema);
