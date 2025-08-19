@@ -4,7 +4,7 @@ import express from "express";
 import mongoose from "mongoose";
 import { PlaylistService } from "../services/playlistService";
 import { User } from "../models/User";
-import { SongService } from "@/services/songService";
+import { SongService } from "../services/songService";
 
 const router = express.Router();
 
