@@ -4,20 +4,6 @@ import express from "express";
 import { SongService } from "../services/songService";
 import { authenticateToken, optionalAuth } from "../middleware/auth";
 
-const addIsLikedStatus = (songs: any[], userId?: mongoose.Types.ObjectId | null) => {
-  return songs.map((song) => ({
-    ...song,
-    isLiked: !!(
-      userId &&
-      Array.isArray(song.likedBy) &&
-      song.likedBy.some(
-        (likedUserId: mongoose.Types.ObjectId) =>
-          likedUserId.toString() === userId.toString()
-      )
-    ),
-  }));
-};
-
 const router = express.Router();
 
 // Get all songs with optional filters
@@ -49,13 +35,10 @@ router.get("/", optionalAuth, async (req, res, next) => {
 
     const total = await Song.countDocuments(filter);
 
-    const userId = (req as any).user?._id;
-    const songsWithLikeStatus = addIsLikedStatus(songs, userId);
-
     res.status(200).json({
       success: true,
       data: {
-        songs: songsWithLikeStatus,
+        songs,
         total,
       },
     });
@@ -80,24 +63,9 @@ router.get("/:id", optionalAuth, async (req, res, next) => {
 
     await Song.findByIdAndUpdate(req.params.id, { $inc: { playCount: 1 } });
 
-    const userId = (req as any).user?._id;
-    const isLiked = !!(
-      userId &&
-      Array.isArray(song.likedBy) &&
-      song.likedBy.some(
-        (likedUserId: mongoose.Types.ObjectId) =>
-          likedUserId.toString() === userId.toString()
-      )
-    );
-
-    const songWithLikeStatus = {
-      ...song,
-      isLiked,
-    };
-
     res.status(200).json({
       success: true,
-      data: { song: songWithLikeStatus },
+      data: { song },
     });
   } catch (error) {
     next(error);
@@ -113,13 +81,10 @@ router.get("/popular/top", optionalAuth, async (req, res, next) => {
       .limit(10)
       .lean();
 
-    const userId = (req as any).user?._id;
-    const songsWithLikeStatus = addIsLikedStatus(songs, userId);
-
     res.status(200).json({
       success: true,
       data: {
-        songs: songsWithLikeStatus,
+        songs,
       },
     });
   } catch (error) {

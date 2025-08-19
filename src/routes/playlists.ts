@@ -127,21 +127,10 @@ router.post("/:id/songs", async (req, res, next) => {
       select: "title duration thumbnailUrl likedBy",
     });
 
-    const playlistWithLikeStatus = {
-      ...updatedPlaylist?.toObject(),
-      songs: updatedPlaylist?.songs.map((song: any) => ({
-        ...song.toObject(),
-        isLiked: song.likedBy.some(
-          (likedUserId: mongoose.Types.ObjectId) =>
-            likedUserId.toString() === req.user._id.toString()
-        ),
-      })),
-    };
-
     res.status(200).json({
       success: true,
       message: "Song added to playlist successfully",
-      data: { playlist: playlistWithLikeStatus },
+      data: { playlist: updatedPlaylist },
     });
   } catch (error: any) {
     console.error("❌ Error adding song to playlist:", error.message);
@@ -226,21 +215,10 @@ router.delete("/:id/songs/:songId", async (req, res, next) => {
       select: "title duration thumbnailUrl likedBy",
     });
 
-    const playlistWithLikeStatus = {
-      ...updatedPlaylist?.toObject(),
-      songs: updatedPlaylist?.songs.map((song: any) => ({
-        ...song.toObject(),
-        isLiked: song.likedBy.some(
-          (likedUserId: mongoose.Types.ObjectId) =>
-            likedUserId.toString() === req.user._id.toString()
-        ),
-      })),
-    };
-
     res.status(200).json({
       success: true,
       message: "Song removed from playlist successfully",
-      data: { playlist: playlistWithLikeStatus },
+      data: { playlist: updatedPlaylist },
     });
   } catch (error: any) {
     console.error("❌ Error removing song from playlist:", error.message);
