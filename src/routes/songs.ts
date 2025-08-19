@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import { Song } from "../models/Song";
 import express from "express";
 import { SongService } from "../services/songService";
-import { authenticateToken } from "../middleware/auth";
+import { authenticateToken, optionalAuth } from "../middleware/auth";
 
 const addIsLikedStatus = (songs: any[], userId?: mongoose.Types.ObjectId | null) => {
   return songs.map((song) => ({
@@ -21,7 +21,7 @@ const addIsLikedStatus = (songs: any[], userId?: mongoose.Types.ObjectId | null)
 const router = express.Router();
 
 // Get all songs with optional filters
-router.get("/", async (req, res, next) => {
+router.get("/", optionalAuth, async (req, res, next) => {
   try {
     const filter: any = { isPublic: true };
 
@@ -65,7 +65,7 @@ router.get("/", async (req, res, next) => {
 });
 
 // Get song by ID
-router.get("/:id", async (req, res, next) => {
+router.get("/:id", optionalAuth, async (req, res, next) => {
   try {
     const song = await Song.findById(req.params.id)
       .populate("artist", "name bio imageUrl")
@@ -105,7 +105,7 @@ router.get("/:id", async (req, res, next) => {
 });
 
 //Get popular songs
-router.get("/popular/top", async (req, res, next) => {
+router.get("/popular/top", optionalAuth, async (req, res, next) => {
   try {
     const songs = await Song.find({ isPublic: true })
       .populate("artist", "name imageUrl")
@@ -138,7 +138,12 @@ router.post("/:id/like", authenticateToken, async (req, res, next) => {
     }
 
     const songId = new mongoose.Types.ObjectId(req.params.id);
-    const result = await SongService.toggleLikeSong(req.user._id, songId);
+
+    if (!(req as any).user || !(req as any).user._id) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const result = await SongService.toggleLikeSong((req as any).user._id, songId);
 
     res.status(200).json({
       success: true,
