@@ -92,7 +92,7 @@ router.get("/popular/top", optionalAuth, async (req, res, next) => {
   }
 });
 
-// Like/Unlike a song (toggle)
+// Like a song
 router.post("/:id/like", authenticateToken, async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
@@ -108,21 +108,18 @@ router.post("/:id/like", authenticateToken, async (req, res, next) => {
       return res.status(401).json({ success: false, message: "Authentication required" });
     }
 
-    const result = await SongService.toggleLikeSong((req as any).user._id, songId);
+    const result = await SongService.likeSong((req as any).user._id, songId);
 
     res.status(200).json({
       success: true,
-      message: result.isLiked
-        ? "Song added to liked songs successfully"
-        : "Song removed from liked songs successfully",
+      message: "Song added to liked songs successfully",
       data: {
         songId: songId,
-        isLiked: result.isLiked,
-        likesCount: result.song.likesCount,
+        likesCount: result.likesCount,
       },
     });
   } catch (error: any) {
-    console.error("❌ Error toggling like:", error.message);
+    console.error("❌ Error liking song:", error.message);
 
     if (error.message.includes("not found")) {
       return res.status(404).json({
@@ -131,16 +128,66 @@ router.post("/:id/like", authenticateToken, async (req, res, next) => {
       });
     }
 
-    if (error.message.includes("already liked") || error.message.includes("not liked")) {
+    if (error.message.includes("already liked")) {
       return res.status(400).json({
         success: false,
-        message: error.message,
+        message: "Song is already in your liked songs",
       });
     }
 
     res.status(500).json({
       success: false,
-      message: "Failed to toggle like status",
+      message: "Failed to like song",
+    });
+  }
+});
+
+// Unlike a song
+router.post("/:id/unlike", authenticateToken, async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid song ID format",
+      });
+    }
+
+    const songId = new mongoose.Types.ObjectId(req.params.id);
+
+    if (!(req as any).user || !(req as any).user._id) {
+      return res.status(401).json({ success: false, message: "Authentication required" });
+    }
+
+    const result = await SongService.unlikeSong((req as any).user._id, songId);
+
+    res.status(200).json({
+      success: true,
+      message: "Song removed from liked songs successfully",
+      data: {
+        songId: songId,
+        likesCount: result.likesCount,
+      },
+    });
+  } catch (error: any) {
+    console.error("❌ Error unliking song:", error.message);
+
+    if (error.message.includes("not found")) {
+      return res.status(404).json({
+        success: false,
+        message: "Song not found",
+      });
+    }
+
+    if (error.message.includes("not liked")) {
+      return res.status(400).json({
+        success: false,
+        message: "Song is not in your liked songs",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to unlike song",
     });
   }
 });
