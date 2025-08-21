@@ -290,4 +290,88 @@ router.post("/", async (req, res, next) => {
   }
 });
 
+// Update playlist info (name, description, coverImageUrl)
+router.put("/:id", async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid playlist ID format",
+      });
+    }
+
+    const playlist = await PlaylistService.validatePlaylistOwnership(
+      new mongoose.Types.ObjectId(req.params.id),
+      req.user._id
+    );
+
+    const { name, description, coverImageUrl } = req.body;
+
+    if (name !== undefined) {
+      if (!name || name.trim().length === 0) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Playlist name is required" });
+      }
+      if (name.trim().length > 100) {
+        return res.status(400).json({
+          success: false,
+          message: "Playlist name cannot exceed 100 characters",
+        });
+      }
+      playlist.name = name.trim();
+    }
+    if (description !== undefined) {
+      if (description.length > 500) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Description cannot exceed 500 characters" });
+      }
+      playlist.description = description.trim();
+    }
+    if (coverImageUrl !== undefined) {
+      playlist.coverImageUrl = coverImageUrl;
+    }
+
+    await playlist.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Playlist updated successfully",
+      data: { playlist },
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Delete playlist
+router.delete("/:id", async (req, res, next) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid playlist ID format",
+      });
+    }
+
+    const playlist = await PlaylistService.validatePlaylistOwnership(
+      new mongoose.Types.ObjectId(req.params.id),
+      req.user._id
+    );
+
+    await playlist.deleteOne();
+    await User.findByIdAndUpdate(req.user._id, {
+      $pull: { playlists: playlist._id },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Playlist deleted successfully",
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;
