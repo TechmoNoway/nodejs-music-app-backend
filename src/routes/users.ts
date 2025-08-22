@@ -1,5 +1,6 @@
 import express from "express";
 import { User } from "../models/User";
+import { uploadAvatarMiddleware, cloudinary } from "../config/cloudinary";
 
 const router = express.Router();
 
@@ -18,9 +19,9 @@ router.get("/profile", async (req, res, next) => {
 });
 
 // Update user profile
-router.put("/profile", async (req, res, next) => {
+router.put("/profile", uploadAvatarMiddleware, async (req, res, next) => {
   try {
-    const { username, email, avatar } = req.body;
+    const { username, email } = req.body;
 
     // Check if username or email is already taken by another user
     if (username || email) {
@@ -44,12 +45,33 @@ router.put("/profile", async (req, res, next) => {
       }
     }
 
+    // Handle avatar upload if file is provided
+    let avatarUrl;
+    if (req.file) {
+      // Get current user to delete old avatar if exists
+      const currentUser = await User.findById(req.user._id);
+
+      // Delete old avatar from Cloudinary if exists
+      if (currentUser?.avatar) {
+        try {
+          const publicId = currentUser.avatar.split("/").pop()?.split(".")[0];
+          if (publicId) {
+            await cloudinary.uploader.destroy(`music-app/avatars/${publicId}`);
+          }
+        } catch (deleteError) {
+          console.warn("Failed to delete old avatar:", deleteError);
+        }
+      }
+
+      avatarUrl = req.file.path;
+    }
+
     const updatedUser = await User.findByIdAndUpdate(
       req.user._id,
       {
         ...(username && { username }),
         ...(email && { email }),
-        ...(avatar && { avatar }),
+        ...(avatarUrl && { avatar: avatarUrl }),
       },
       { new: true, runValidators: true }
     );

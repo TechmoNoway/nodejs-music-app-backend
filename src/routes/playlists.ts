@@ -5,6 +5,7 @@ import mongoose from "mongoose";
 import { PlaylistService } from "../services/playlistService";
 import { User } from "../models/User";
 import { SongService } from "../services/songService";
+import { uploadPlaylistThumbnailMiddleware, cloudinary } from "../config/cloudinary";
 
 const router = express.Router();
 
@@ -291,7 +292,7 @@ router.post("/", async (req, res, next) => {
 });
 
 // Update playlist info (name, description, coverImageUrl)
-router.put("/:id", async (req, res, next) => {
+router.put("/:id", uploadPlaylistThumbnailMiddleware, async (req, res, next) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
@@ -329,7 +330,22 @@ router.put("/:id", async (req, res, next) => {
       }
       playlist.description = description.trim();
     }
-    if (coverImageUrl !== undefined) {
+
+    // Handle thumbnail upload if file is provided
+    if (req.file) {
+      // Delete old thumbnail from Cloudinary if exists
+      if (playlist.coverImageUrl) {
+        try {
+          const publicId = playlist.coverImageUrl.split("/").pop()?.split(".")[0];
+          if (publicId) {
+            await cloudinary.uploader.destroy(`music-app/playlists/${publicId}`);
+          }
+        } catch (deleteError) {
+          console.warn("Failed to delete old thumbnail:", deleteError);
+        }
+      }
+      playlist.coverImageUrl = req.file.path;
+    } else if (coverImageUrl !== undefined) {
       playlist.coverImageUrl = coverImageUrl;
     }
 
