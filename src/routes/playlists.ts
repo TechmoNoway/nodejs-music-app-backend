@@ -5,7 +5,11 @@ import mongoose from "mongoose";
 import { PlaylistService } from "../services/playlistService";
 import { User } from "../models/User";
 import { SongService } from "../services/songService";
-import { uploadPlaylistThumbnailMiddleware, cloudinary } from "../config/cloudinary";
+import {
+  uploadPlaylistThumbnailMiddleware,
+  uploadToCloudinary,
+  deleteFromCloudinary,
+} from "../config/cloudinary";
 
 const router = express.Router();
 
@@ -333,18 +337,35 @@ router.put("/:id", uploadPlaylistThumbnailMiddleware, async (req, res, next) => 
 
     // Handle thumbnail upload if file is provided
     if (req.file) {
+      console.log("🖼️ Processing thumbnail upload with cloudinary.uploader");
+
       // Delete old thumbnail from Cloudinary if exists
       if (playlist.coverImageUrl) {
         try {
-          const publicId = playlist.coverImageUrl.split("/").pop()?.split(".")[0];
-          if (publicId) {
-            await cloudinary.uploader.destroy(`music-app/playlists/${publicId}`);
-          }
+          await deleteFromCloudinary(playlist.coverImageUrl);
         } catch (deleteError) {
           console.warn("Failed to delete old thumbnail:", deleteError);
         }
       }
-      playlist.coverImageUrl = req.file.path;
+
+      // Upload new thumbnail to Cloudinary
+      try {
+        playlist.coverImageUrl = await uploadToCloudinary(
+          req.file.buffer,
+          "music-app/playlists",
+          [
+            { width: 600, height: 600, crop: "fill" },
+            { quality: "auto", fetch_format: "auto" },
+          ]
+        );
+        console.log("✅ Thumbnail uploaded successfully:", playlist.coverImageUrl);
+      } catch (uploadError) {
+        console.error("❌ Thumbnail upload failed:", uploadError);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload thumbnail",
+        });
+      }
     } else if (coverImageUrl !== undefined) {
       playlist.coverImageUrl = coverImageUrl;
     }

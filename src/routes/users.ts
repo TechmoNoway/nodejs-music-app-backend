@@ -1,6 +1,10 @@
 import express from "express";
 import { User } from "../models/User";
-import { uploadAvatarMiddleware, cloudinary } from "../config/cloudinary";
+import {
+  uploadAvatarMiddleware,
+  uploadToCloudinary,
+  deleteFromCloudinary,
+} from "../config/cloudinary";
 
 const router = express.Router();
 
@@ -48,22 +52,34 @@ router.put("/profile", uploadAvatarMiddleware, async (req, res, next) => {
     // Handle avatar upload if file is provided
     let avatarUrl;
     if (req.file) {
+      console.log("🖼️ Processing avatar upload with cloudinary.uploader");
+
       // Get current user to delete old avatar if exists
       const currentUser = await User.findById(req.user._id);
 
       // Delete old avatar from Cloudinary if exists
       if (currentUser?.avatar) {
         try {
-          const publicId = currentUser.avatar.split("/").pop()?.split(".")[0];
-          if (publicId) {
-            await cloudinary.uploader.destroy(`music-app/avatars/${publicId}`);
-          }
+          await deleteFromCloudinary(currentUser.avatar);
         } catch (deleteError) {
           console.warn("Failed to delete old avatar:", deleteError);
         }
       }
 
-      avatarUrl = req.file.path;
+      // Upload new avatar to Cloudinary
+      try {
+        avatarUrl = await uploadToCloudinary(req.file.buffer, "music-app/avatars", [
+          { width: 400, height: 400, crop: "fill", gravity: "face" },
+          { quality: "auto", fetch_format: "auto" },
+        ]);
+        console.log("✅ Avatar uploaded successfully:", avatarUrl);
+      } catch (uploadError) {
+        console.error("❌ Avatar upload failed:", uploadError);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to upload avatar",
+        });
+      }
     }
 
     const updatedUser = await User.findByIdAndUpdate(
