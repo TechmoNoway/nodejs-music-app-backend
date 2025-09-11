@@ -128,15 +128,12 @@ export class SongService {
         throw new Error("Song is not liked");
       }
 
-      // Update song's likedBy array
       song.likedBy.splice(likedIndex, 1);
       await song.save();
 
-      // Sync with Liked Songs playlist
       try {
         await PlaylistService.removeFromLikedSongs(userId, songId);
       } catch (playlistError: any) {
-        // Rollback if playlist sync fails
         song.likedBy.push(userId);
         await song.save();
         throw new Error(`Failed to sync with playlist: ${playlistError.message}`);

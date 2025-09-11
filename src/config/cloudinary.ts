@@ -1,14 +1,12 @@
 import { v2 as cloudinary } from "cloudinary";
 import multer from "multer";
 
-// Configure Cloudinary
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
   api_key: process.env.CLOUDINARY_API_KEY,
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-// File filter function
 const fileFilter = (req: any, file: any, cb: any) => {
   if (file.mimetype.startsWith("image/")) {
     cb(null, true);
@@ -17,16 +15,14 @@ const fileFilter = (req: any, file: any, cb: any) => {
   }
 };
 
-// Multer configuration for memory storage (we'll upload to Cloudinary manually)
 const upload = multer({
   storage: multer.memoryStorage(),
   fileFilter,
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
+    fileSize: 10 * 1024 * 1024,
   },
 });
 
-// Helper function to upload to Cloudinary
 export const uploadToCloudinary = async (
   buffer: Buffer,
   folder: string,
@@ -54,10 +50,8 @@ export const uploadToCloudinary = async (
   });
 };
 
-// Helper function to delete from Cloudinary
 export const deleteFromCloudinary = async (imageUrl: string): Promise<void> => {
   try {
-    // Extract public_id from URL
     const parts = imageUrl.split("/");
     const filename = parts[parts.length - 1];
     const publicId = filename.split(".")[0];
@@ -72,7 +66,6 @@ export const deleteFromCloudinary = async (imageUrl: string): Promise<void> => {
   }
 };
 
-// Middleware wrappers
 export const uploadAvatarMiddleware = (req: any, res: any, next: any) => {
   console.log("🔧 Avatar upload middleware called");
   upload.single("avatar")(req, res, (err: any) => {

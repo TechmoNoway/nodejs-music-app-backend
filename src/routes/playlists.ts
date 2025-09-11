@@ -41,7 +41,6 @@ router.get("/", async (req, res, next) => {
 // Get playlist by ID
 router.get("/:id", async (req, res, next) => {
   try {
-    // Validate ObjectId format
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
         success: false,
@@ -49,13 +48,11 @@ router.get("/:id", async (req, res, next) => {
       });
     }
 
-    // Validate ownership and get playlist
     const playlist = await PlaylistService.validatePlaylistOwnership(
       new mongoose.Types.ObjectId(req.params.id),
       req.user._id
     );
 
-    // Populate detailed information
     const populatedPlaylist = await Playlist.findById(req.params.id)
       .populate("owner", "username avatar fullName")
       .populate({

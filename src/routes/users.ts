@@ -27,7 +27,6 @@ router.put("/profile", uploadAvatarMiddleware, async (req, res, next) => {
   try {
     const { username, email } = req.body;
 
-    // Check if username or email is already taken by another user
     if (username || email) {
       const existingUser = await User.findOne({
         $and: [
@@ -49,15 +48,12 @@ router.put("/profile", uploadAvatarMiddleware, async (req, res, next) => {
       }
     }
 
-    // Handle avatar upload if file is provided
     let avatarUrl;
     if (req.file) {
       console.log("🖼️ Processing avatar upload with cloudinary.uploader");
 
-      // Get current user to delete old avatar if exists
       const currentUser = await User.findById(req.user._id);
 
-      // Delete old avatar from Cloudinary if exists
       if (currentUser?.avatar) {
         try {
           await deleteFromCloudinary(currentUser.avatar);
@@ -66,7 +62,6 @@ router.put("/profile", uploadAvatarMiddleware, async (req, res, next) => {
         }
       }
 
-      // Upload new avatar to Cloudinary
       try {
         avatarUrl = await uploadToCloudinary(req.file.buffer, "music-app/avatars", [
           { width: 400, height: 400, crop: "fill", gravity: "face" },
@@ -122,7 +117,6 @@ router.put("/password", async (req, res, next) => {
       });
     }
 
-    // Verify current password
     const isCurrentPasswordValid = await user.comparePassword(currentPassword);
     if (!isCurrentPasswordValid) {
       return res.status(400).json({
@@ -131,7 +125,6 @@ router.put("/password", async (req, res, next) => {
       });
     }
 
-    // Update password
     user.password = newPassword;
     await user.save();
 
