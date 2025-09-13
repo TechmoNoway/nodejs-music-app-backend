@@ -21,7 +21,8 @@
     "JWT_SECRET": "your_jwt_secret",
     "CLOUDINARY_CLOUD_NAME": "dtlq93jzz",
     "CLOUDINARY_API_KEY": "951822293458253",
-    "CLOUDINARY_API_SECRET": "0AcGtzLDyqsI5FuU4q7x-Ye7mtQ"
+    "CLOUDINARY_API_SECRET": "0AcGtzLDyqsI5FuU4q7x-Ye7mtQ",
+    "GOOGLE_CLIENT_ID": "133826536554-6bpq7khp1jd7601bl1a0e1idkmrscdqs.apps.googleusercontent.com"
   },
   "outputDirectory": "dist"
 }
